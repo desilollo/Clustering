@@ -1,0 +1,154 @@
+---
+title: "customersegmentation"
+output: html_document
+---
+
+```{r}
+#necessity library 
+
+library(tidyverse)
+library(readr)
+library(cluster)    
+library(factoextra) 
+library(arulesViz)
+library(gridExtra)
+library(caret)
+library(Matrix)
+library(arules)
+library(corrplot)
+library(GGally)
+
+mall <- read.csv("C:/Users/loren/Desktop/LSBU/Statistical Analysis/coursework1/codes/Mall_Customers.csv")
+```
+
+```{r}
+colnames(mall)<- c("CustomerID", "Gender", "Age", "Salary", "Propensity.to.spend")
+glimpse(mall)
+summary(mall)
+mall
+```
+
+```{r}
+# Exclude columns useless (ID and Gender variables) 
+mall2 <- mall[-c(1,2)]
+
+# Nomalization of the dataset
+pre = preProcess(mall2)
+mallNorm = predict(pre, mall2)
+```
+
+```{r}
+#let's show some interesting histograms about the useful attributes thanks to an histograms chart
+
+mall %>%
+  gather(Attributes, value, 3:5) %>%
+  ggplot(aes(x=value, fill=Attributes)) +            #fill attributes for coloured the histogram
+  geom_histogram(colour="grey", show.legend=TRUE) +  #colour is for the border
+  facet_wrap(facet='Attributes', scales="fixed") +   #facet_wrap returns an histograms for each attrbutes selcted 
+  labs(x="Values", y="Frequency",                    #axis names
+       title="Customer Attributes - Histograms") +
+  theme_bw()
+```
+
+```{r}
+# Correlation matrix 
+
+corrplot(cor(mall[,3:5]), type="upper", method="color", tl.cex=1)   #matrix taking colomuns 3 to 5, it returns the upper side, color packege, and dimension of the 'cell title'
+
+#inverse relation between age and propensity to spend, and age with salary
+```
+
+
+```{r}
+#set.seed(123)  #it is a randon number generator
+
+# Elbow Method
+
+twss <- function(k) {                              #tot within sum of square
+  kmeans(mallNorm, k, nstart = 20 )$tot.withinss
+}
+k.values <- 1:10
+twss_values <- map_dbl(k.values, twss)
+plot(k.values, twss_values,
+     type="b", pch = 10, frame = FALSE, 
+     xlab="Number of clusters K",
+     ylab="Total within-clusters sum of squares")
+```
+
+```{r}
+# K-mean Clustering - no clear how many cluster with the Elbow method, so let's try different cluster
+
+#set.seed(1234)
+
+k3 <- kmeans(mallNorm, centers = 3, nstart = 10)
+k4 <- kmeans(mallNorm, centers = 4, nstart = 10)
+k5 <- kmeans(mallNorm, centers = 5, nstart = 10)
+
+
+# plot for understand how many cluster I need 
+#I have removed the point from these plot because there were to many and it wasn't clear how many clusters use 
+
+c1 <- fviz_cluster(k3, geom = "x",  data = mallNorm) + ggtitle("cluster with k = 3")
+c2 <- fviz_cluster(k4, geom = "x", data = mallNorm) + ggtitle("cluster with k = 4")
+c3 <- fviz_cluster(k5, geom = "x",  data = mallNorm) + ggtitle("cluster with k = 5")
+
+grid.arrange(c1, c2, c3)
+```
+
+```{r}
+mall <- mall%>%
+  mutate(cluster = k4$cluster) #preserves the previous variables and add new one
+table(mall$cluster)
+mall %>% 
+  select(CustomerID,Age,Salary,Propensity.to.spend,cluster) %>% 
+  group_by(cluster)
+```
+
+```{r}
+#clusters analysis
+
+cluster1<-subset(mall, cluster==1.0) #low spending score and high annual income, from 19 to 59 years old
+summary(cluster1)
+```
+```{r}
+cluster2<-subset(mall, cluster==2.0)
+summary(cluster2) #low annual income, low spending score, from 35 to 70 years old
+```
+```{r}
+cluster3<-subset(mall, cluster==3.0)
+summary(cluster3)  # high spending score, high annual income, from 27 to 40 years old
+```
+```{r}
+cluster4<-subset(mall, cluster==4)
+summary(cluster4)  # mixed spending score, low annual income, from 18 to 38 years old
+```
+
+```{r}
+ggplot(data = mall ,aes(Propensity.to.spend, Salary)) + geom_point(aes(colour = factor(cluster)))
+ggplot(data = mall ,aes(Age,Propensity.to.spend)) + geom_point(aes(colour = factor(cluster)))
+ggplot(data = mall ,aes(Age,Salary)) + geom_point(aes(colour = factor(cluster)))
+```
+```{r}
+# plot the clustering differences 
+
+ggpairs(cbind(mall, Cluster=as.factor(k4$cluster)),
+        columns=3:5, aes(colour=Cluster, alpha=3),
+        lower=list(continuous="points"),
+        upper=list(continuous="points"),
+        axisLabels='show', switch="both") +
+        theme_bw()
+```
+
+
+```{r}
+# plot the gender differences - nothing interesting - just that the male have a maximum annual income higher than the female, and also a they have a lower maximum spending score than the female.
+
+ggpairs(cbind(mall, Cluster=as.factor(k4$cluster)), #factor is used to change a vector in a factor 
+        columns=3:5, aes(colour=Gender, alpha=3),
+        lower=list(continuous="points"),
+        upper=list(continuous="points"),
+        axisLabels="show", switch="both") +
+        theme_bw()
+```
+
+

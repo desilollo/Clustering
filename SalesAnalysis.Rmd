@@ -1,0 +1,120 @@
+---
+title: "K-MEANS CLUSTERING, ANALYSIS SALES"
+output: html_document
+---
+
+
+
+```{r}
+# Load libraries
+library(tidyverse)
+library(corrplot)
+library(gridExtra)
+library(GGally)
+library(knitr)
+library(dplyr)
+
+```
+
+```{r}
+sales1 <- read.csv("C://Users//loren//Desktop//LSBU//Statistical Analysis//coursework1//codes//sales_data_sample.csv")
+sales1[0:10,]   #show the first rows just for understand how to clean my dataset
+```
+
+```{r}
+# Remove the columns useless
+sales1 <-sales1[, -21]
+sales1 <-sales1[, -19]
+sales1 <-sales1[, -18]
+sales1 <-sales1[, -16]
+sales1 <-sales1[, -4]
+sales1 <-sales1[, -1]
+
+
+colnames(sales1)<- c("QuantOrdered", "Prices", "Sales", "OrderDate", "Status", "QTR_ID", "MonthID", "Year_ID", "ProductLine", "SuggestedPrices", "ProductCode", "CustomerName", "Phone", "AddressLine2", "CAP", "Territory", "LastName", "FirstName", "DealSize" )
+
+sales1
+```
+
+
+```{r}
+#let's show some interesting histograms about the useful attributes
+
+sales1 %>%
+  gather(Attributes, value, 1:3) %>%
+  ggplot(aes(x=value, fill=Attributes)) +              #fill attributes for coloured the histogram
+  geom_histogram(colour="grey", show.legend=TRUE) +    #colour is for the border
+  facet_wrap(facet = 'Attributes', scales="free_x") +  #facet_wrap returns an histograms for each attrbutes selected
+  labs(x="Values", y="Frequency",                      #axis names
+       title="Sales Attributes - Histograms") +
+  theme_bw()
+```
+
+
+```{r}
+# Correlation matrix 
+corrplot(cor(sales1[,1:3]), type="upper", method="circle", tl.cex=1)
+```
+
+```{r}
+# Normalization
+sales1Norm <- as.data.frame(scale(sales1[,1:3]))
+sales1Norm
+```
+
+```{r}
+# Let's try an execution of k-means with k=2
+set.seed(1234)
+sales1_k2 <- kmeans(sales1[,1:3, 6:20], centers=2)
+# Mean values of each cluster
+aggregate(sales1, by=list(sales1_k3$cluster), mean)
+```
+
+```{r}
+# Clustering 
+ggpairs(cbind(sales1, Cluster=as.factor(sales1_k2$cluster)),
+        columns=1:3, aes(colour=Cluster, alpha=3),
+        lower=list(continuous="points"),
+        upper=list(continuous="points"),
+        axisLabels="show", switch="both") +  #both sides
+        theme_bw()
+```
+
+```{r}
+#ELBOW METHOD 
+
+wss <- numeric()
+set.seed(1234)
+
+for(i in 1:10){
+
+  wss[i] <- kmeans(sales1Norm, centers=i)$tot.withinss
+}
+  
+
+elbow <- qplot(1:10, wss, geom=c("point", "line"),
+            xlab="Number of clusters", ylab="SSE") +
+  scale_x_continuous(breaks=seq(0, 10, 2)) +
+  theme_bw()
+
+# Subplot
+grid.arrange(elbow, ncol=1)
+```
+
+```{r}
+# Execution of k-means with k=3
+set.seed(1234)
+
+sales1_k3 <- kmeans(sales1Norm, centers=3)
+```
+
+```{r}
+# Clustering 
+ggpairs(cbind(sales1, Cluster=as.factor(sales1_k3$cluster)),
+        columns=1:3, aes(colour=Cluster, alpha=1),
+        lower=list(continuous="points"),
+        upper=list(continuous="points"),
+        axisLabels="both", switch="both") +
+        theme_bw()
+```
+
